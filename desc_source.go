@@ -75,6 +75,28 @@ func DescriptorSourceFromProtoFiles(importPaths []string, fileNames ...string) (
 	return DescriptorSourceFromFileDescriptors(fds...)
 }
 
+// DescriptorSourceFromProtoFilesWithLookup creates a DescriptorSource that is backed by the named files,
+// whose contents are Protocol Buffer source files. The given importPaths are used to locate
+// any imported files. Any unresolved imports can be looked up with the provided lookupImport function.
+func DescriptorSourceFromProtoFilesWithLookup(
+	lookupImport func(string) (*desc.FileDescriptor, error), importPaths []string, fileNames ...string) (DescriptorSource, error) {
+	fileNames, err := protoparse.ResolveFilenames(importPaths, fileNames...)
+	if err != nil {
+		return nil, err
+	}
+	p := protoparse.Parser{
+		ImportPaths:           importPaths,
+		InferImportPaths:      len(importPaths) == 0,
+		IncludeSourceCodeInfo: true,
+		LookupImport:          lookupImport,
+	}
+	fds, err := p.ParseFiles(fileNames...)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse given files: %v", err)
+	}
+	return DescriptorSourceFromFileDescriptors(fds...)
+}
+
 // DescriptorSourceFromFileDescriptorSet creates a DescriptorSource that is backed by the FileDescriptorSet.
 func DescriptorSourceFromFileDescriptorSet(files *descpb.FileDescriptorSet) (DescriptorSource, error) {
 	unresolved := map[string]*descpb.FileDescriptorProto{}
